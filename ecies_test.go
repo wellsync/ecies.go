@@ -31,6 +31,7 @@ package ecies
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
@@ -38,8 +39,6 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
-
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 func TestKDF(t *testing.T) {
@@ -104,10 +103,10 @@ func TestSharedKeyPadding(t *testing.T) {
 	// sanity checks
 	prv0 := hexKey("1adf5c18167d96a1f9a0b1ef63be8aa27eaf6032c233b2b38f7850cf5b859fd9")
 	prv1 := hexKey("0097a076fc7fcd9208240668e31c9abee952cbb6e375d1b8febc7499d6e16f1a")
-	x0, _ := new(big.Int).SetString("1a8ed022ff7aec59dc1b440446bdda5ff6bcb3509a8b109077282b361efffbd8", 16)
-	x1, _ := new(big.Int).SetString("6ab3ac374251f638d0abb3ef596d1dc67955b507c104e5f2009724812dc027b8", 16)
-	y0, _ := new(big.Int).SetString("e040bd480b1deccc3bc40bd5b1fdcb7bfd352500b477cb9471366dbd4493f923", 16)
-	y1, _ := new(big.Int).SetString("8ad915f2b503a8be6facab6588731fefeb584fd2dfa9a77a5e0bba1ec439e4fa", 16)
+	x0, _ := new(big.Int).SetString("894f0b45e976ff1d368ecb31aa5fdd47e3edb1b980b7d3bf7a7b543a5b2964a0", 16)
+	x1, _ := new(big.Int).SetString("99a279d52118fffbaa3f2ac2d60f3bacf10e6cf86f46ee7f3b39b29ec78a94f2", 16)
+	y0, _ := new(big.Int).SetString("c942f48766dc44c2a6e808691091de40d84f9b9df5394f6df99454a209d7843e", 16)
+	y1, _ := new(big.Int).SetString("7ca3ebd2ea8ac4913c8c0c8cac4571316abab06b2a076caa9369a1ae7fd2d8ce", 16)
 
 	if prv0.PublicKey.X.Cmp(x0) != 0 {
 		t.Errorf("mismatched prv0.X:\nhave: %x\nwant: %x\n", prv0.PublicKey.X.Bytes(), x0.Bytes())
@@ -174,21 +173,6 @@ func BenchmarkGenerateKeyP256(b *testing.B) {
 // Benchmark the generation of P256 shared keys.
 func BenchmarkGenSharedKeyP256(b *testing.B) {
 	prv, err := GenerateKey(rand.Reader, elliptic.P256(), nil)
-	if err != nil {
-		b.Fatal(err)
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, err := prv.GenerateShared(&prv.PublicKey, 16, 16)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-// Benchmark the generation of S256 shared keys.
-func BenchmarkGenSharedKeyS256(b *testing.B) {
-	prv, err := GenerateKey(rand.Reader, crypto.S256(), nil)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -407,18 +391,21 @@ func TestSharedKeyStatic(t *testing.T) {
 		t.Fatal(ErrBadSharedKeys)
 	}
 
-	sk := decode("167ccc13ac5e8a26b131c3446030c60fbfac6aa8e31149d0869f93626a4cdf62")
+	sk := decode("2b71c59bb0495360d20642360998981d3d00c74f6e72ec4d94f1391662f00d10")
 	if !bytes.Equal(sk1, sk) {
 		t.Fatalf("shared secret mismatch: want: %x have: %x", sk, sk1)
 	}
 }
 
 func hexKey(prv string) *PrivateKey {
-	key, err := crypto.HexToECDSA(prv)
-	if err != nil {
-		panic(err)
-	}
-	return ImportECDSA(key)
+	b := decode(prv)
+
+	privateKey := &ecdsa.PrivateKey{}
+	privateKey.PublicKey.Curve = elliptic.P256()
+	privateKey.D = (&big.Int{}).SetBytes(b)
+	privateKey.X, privateKey.Y = privateKey.PublicKey.Curve.ScalarBaseMult(b)
+
+	return ImportECDSA(privateKey)
 }
 
 func decode(s string) []byte {
