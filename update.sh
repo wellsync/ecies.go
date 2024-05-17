@@ -1,6 +1,6 @@
 #!/bin/sh
 
-VERSION="1.10.13"
+VERSION="1.14.3"
 
 if ! [ -d "/tmp/go-eth" ]; then
   git clone git@github.com:ethereum/go-ethereum.git /tmp/go-eth
